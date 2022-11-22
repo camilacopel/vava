@@ -10,7 +10,6 @@ from collections import Counter
 
 
 class ModeloCamila:
-    """descrever."""
     
     def __init__(self):
         """ Criação do modelo.
@@ -42,7 +41,7 @@ class ModeloCamila:
         self.df_correlacao = None
         self._period_ = None
         self.correlacao_ = list()
-        self.correlacao_outros_ = None
+        #self.correlacao_outros_ = list()
         self.mes_final_periodo_ = None
         self.anos_ = list()
 
@@ -71,48 +70,51 @@ class ModeloCamila:
         self.df_correlacao = calc_corr_last12(df_base)
         
         #Ranking das correlações dos postos principais
-        self._top_corr_principais = list()
-        self.correlacao_teste = list()
-
-        #self.dict_teste = dict(zip(self.postos_principais.keys(), self.correlacao_teste))
+        self._ranking_corr_principais = list()
         
+        #lista com ranking das correlações dos principais postos
         for coluna in self.postos_principais.keys():
-            top_corr = self.df_correlacao[coluna].sort_values(ascending=False)
-            self._top_corr_principais.append(top_corr)    
+            ranking_corr = self.df_correlacao[coluna].sort_values(ascending=False)
+            self._ranking_corr_principais.append(ranking_corr)    
+            
+        
+        #Armazena a informação dos anos dos arquivos
+        #Counter é um contêiner que armazena elementos e suas contagens em dict
+        _counter_ = Counter()
+        for anos in anos_proibidos:
+            _counter_.update(anos)
         
 
-        #lista com todos os anos que passaram pelo teste da amplitude dos postos principais
-             
-       
-         
+        #A maior correlação
+        FIRST_RANK_CORR = 1
+        #número arbitário, mas que seja entre 10 e 25.
+        #escolhendo uma correlação alta, mas que passe pelos testes
+        POSICAO_LIMITE_RANK_CORR = 15
         
         
-        for corr_postos in self._top_corr_principais:
-            # print(corr_postos)
+        
+        for corr_postos in self._ranking_corr_principais:
             
-            for posicao_atual in range(1, 13):      
-                # print(posicao_atual)
+            for posicao_atual in range(FIRST_RANK_CORR, POSICAO_LIMITE_RANK_CORR):      
+                
+                #TESTE DA AMPLITUDE INICIA AQUI
                 # Dados que serão usados para previsão
                 self._period_ = corr_postos.index[posicao_atual]
-                #print(self._period_)
                 #Para selecionar o primeiro mês da previsão extendida
                 mes_escolhido_ini = self._period_ + 1       
-                #print(mes_escolhido_ini)
                 #série com os dados do primeiro mês da previsão extendida
                 series_proximo_mes = self.df_base.loc[mes_escolhido_ini]
                 
-                #Renomeando index
+                #Renomeando index para ano e mes da previsão extendida
                 series_proximo_mes.name = self.df_base.index[-1] + 1
                 
                 
                 #Acrescentando o primeiro mês da previsão extendida nos dados originais
                 df_base_modif = pd.concat([self.df_base, series_proximo_mes.to_frame().T])
-                # print(df_base_modif)
                 
                 #Cálculo da razão
                 #Dividindo a vazão dos meses pelo seu mês posterior
                 df_razao = df_base_modif.shift(1) / df_base_modif
-                #print(df_razao)
                 #substitui os valores NaN e infinito por zero
                 df_razao.replace([np.inf, np.nan], 0, inplace=True)
                 #Identifica o mês para aplicar o teste da amplitude e retorna para todos os anos
@@ -120,10 +122,8 @@ class ModeloCamila:
                 df_razao = df_razao[df_razao.index.month == mes_escolhido_ini.month]
                 #Razão da vazao da previsaõ da Refinitiv pelo primeiro mês da vazão extendida
                 df_razao_previsao = df_razao.iloc[-1, :]
-                #print(df_razao_previsao)
                 #Valor máximo do histórico, excluindo a previsão da Refinitiv
                 df_razao_maximo = df_razao.iloc[:-1, :].max()
-                #print(df_razao_maximo)
                 #Valor da razão mínima do histórico
                 df_razao_minima = df_razao.iloc[:-1, :].min()
             
@@ -133,54 +133,41 @@ class ModeloCamila:
                 teste_amplitude_min = df_razao_previsao[df_razao_previsao <= df_razao_minima]
                 
                 #Verifica se a usina de referência consta nas variáveis das usinas que falharam
-                teste_da_amplitude = (top_corr.name in teste_amplitude_max.index.to_list() or
-                                      top_corr.name in teste_amplitude_min.index.to_list())
+                teste_da_amplitude = (ranking_corr.name in teste_amplitude_max.index.to_list() or
+                                      ranking_corr.name in teste_amplitude_min.index.to_list())
                 
                 
                 
-                _counter_ = Counter()
-                _counter_.update(self.anos_)
-                print(_counter_)
                 
-                
-                #anos que pasaram no teste da amplitude
+                #anos que passaram no teste da amplitude
                 if teste_da_amplitude is False:
-        
                     
-                    
-                    
-                    #verifica se o ano aparece aparece nos arquivos antereiores
-                    for anos in anos_proibidos:
-                        if (i == j for i, j in zip(anos, self.anos_)) == True:
-                            continue
-                            posicao_atual += 1
-                        
-                        
-                        
-                    #Verifica se o ano parace no mesmo arquivo nos outros postos     
-                    if _counter_.values == 2:
+                    #TESTE QUE EVITA REPETIÇÃO DOS ANOS
+                    #verifica se o ano foi usado anterior no mesmo arquivo ou nos outros arquivos
+                    #se sim, utiliza o próximo ano do ranking
+                    if self._period_.year in _counter_.keys():
                         continue
-                        posicao_atual += 1
-                        
-                        
-                        
+                    
+                    
                     else:
-                        self.anos_.append(self._period_.year)
-                        
+                        #caso o ano não tenha sido usado
                         self.posicao = posicao_atual
+                        
+                        # Outras informações sobre o modelo 'treinado'
+                        # Usando sufixo _ semelhante ao scikit-learn
+                        self.anos_.append(self._period_.year)
                         self.correlacao_.append(corr_postos.iloc[self.posicao])
+                        
+                        """verificar se realmente há necessidade dessa informação"""
+                        #self.correlacao_outros_.append(self.df_correlacao.loc[corr_postos.index[self.posicao]])
                         break
                     
-                
+                    
            
-                
-        # Outras informações sobre o modelo 'treinado'
-        # Usando sufixo _ semelhante ao scikit-learn
-        """corrigir esse erro."""
-        self.correlacao_ = top_corr.iloc[self.posicao]
-            
-        self.correlacao_outros_ = self.df_correlacao.loc[top_corr.index[self.posicao]]
-        self.mes_final_periodo_ = self._period_.strftime('%Y-%m')
+        """modificar aqui.
+            porque pega apenas o último ano do último arquivo.
+        """
+        #self.mes_final_periodo_ = self._period_.strftime('%Y-%m')
 
 
         return self
@@ -207,7 +194,10 @@ class ModeloCamila:
         # Mês seguinte ao período selecionado pelo modelo
         try:
             # Não havendo erro supomos que o fit foi realizado
+            
+            
             mes_escolhido_ini = self._period_ + 1
+            
         except TypeError:
             # Podemos futuramente usar o erro sklearn.exceptions.NotFittedError,
             # mas para simplificar:
@@ -218,6 +208,8 @@ class ModeloCamila:
 
         # Se num_meses não for informado vai o final do ano
         num_meses = num_meses if num_meses else (13 - mes_escolhido_ini.month)
+
+        
 
         # Dados do período escolhido
         df_escolhido = self.df_base.loc[mes_escolhido_ini:].iloc[:num_meses]
