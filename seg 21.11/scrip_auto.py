@@ -64,11 +64,15 @@ for vaz in lista_vazoes:
     model = ModeloCamila()
     model.fit(vaz.df_period, anos_proibidos=anos_usados)
     lista_modelos.append(model)
+    
+    
+    """verificar com o Yanase método extend"""
     anos_usados.append(model.anos_)
     
     
     """modifiacr aqui"""
     # Predição para um novo período
     resultados.append(model.predict())
+    
         
         #anos_usados.extend(model.anos_)
