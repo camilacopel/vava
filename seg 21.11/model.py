@@ -89,7 +89,7 @@ class ModeloCamila:
         FIRST_RANK_CORR = 1
         #número arbitário, mas que seja entre 10 e 25.
         #escolhendo uma correlação alta, mas que passe pelos testes
-        POSICAO_LIMITE_RANK_CORR = 15
+        POSICAO_LIMITE_RANK_CORR = 20
         
         
         
@@ -191,37 +191,57 @@ class ModeloCamila:
             Previsão para os próximos meses.
 
         """
-        # Mês seguinte ao período selecionado pelo modelo
+        #Caso não tenha rodado o fit a lista self.anos_ estará vazia
         try:
             # Não havendo erro supomos que o fit foi realizado
             
+            len(self.anos_) != 0
             
-            mes_escolhido_ini = self._period_ + 1
             
         except TypeError:
             # Podemos futuramente usar o erro sklearn.exceptions.NotFittedError,
             # mas para simplificar:
             raise Exception("Realizar o fit do modelo antes") from None
 
+        
         # Primeiro mês a ser previsto
         next_month = self.df_base.index[-1] + 1
 
         # Se num_meses não for informado vai o final do ano
-        num_meses = num_meses if num_meses else (13 - mes_escolhido_ini.month)
-
+        #num_meses = num_meses if num_meses else (13 - mes_escolhido_ini.month)
+        num_meses = num_meses if num_meses else (13 - next_month.month)
         
+        #lista de dataframes com os trechos selecionados para preencher
+        #dados da previsão extendida
+        self.list_trecho_escolhido = list()
+        for anos in self.anos_:
+        
+            # Mês seguinte ao período selecionado pelo modelo
+            mes_escolhido_ini = pd.Period(year=anos, month=next_month.month, freq='M')
+            # Dados do período escolhido
+            df_escolhido = self.df_base.loc[mes_escolhido_ini:].iloc[:num_meses]
 
-        # Dados do período escolhido
-        df_escolhido = self.df_base.loc[mes_escolhido_ini:].iloc[:num_meses]
-
-        # Ajusta o index para o novo período
-        df_trecho_ajust = df_escolhido.copy()
-        df_trecho_ajust.index = pd.period_range(next_month,
-                                                periods=len(df_trecho_ajust),
-                                                freq='M')
-
-        return df_trecho_ajust
+            # Ajusta o index para o novo período
+            df_trecho_ajust = df_escolhido.copy()
+            df_trecho_ajust.index = pd.period_range(next_month,
+                                                    periods=len(df_trecho_ajust),
+                                                    freq='M')
+            
+            self.list_trecho_escolhido.append(df_trecho_ajust)
+            
+        return self.list_trecho_escolhido
 
     
-    def salvar():
+    def salvar_txt(self):
+        
+        #Retorna uma lista com nome das usinas
+        nome_postos = self.postos_principais.values()
+        #Convertendo os anos em strings para concontenar no nome
+        #dos novos arquivos criados
+        anos_string = list(map(str, self.anos_))
+        
+        
+        
+        
+        
         pass
