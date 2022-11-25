@@ -78,6 +78,7 @@ def _periodizar_df_arq(df_arq: pd.DataFrame) -> pd.DataFrame:
     return df_period
 
 
+
 def _desperiodizar_df_arq(df_period: pd.DataFrame) -> pd.DataFrame:
     """
     Cria um dataframe 'desperiodizado', voltando ao formato tradicional.
@@ -105,6 +106,37 @@ def _desperiodizar_df_arq(df_period: pd.DataFrame) -> pd.DataFrame:
     df_arq.sort_index(inplace=True)
 
     return df_arq
+
+
+# def _desperiodizar_df_arq(df_period: pd.DataFrame) -> pd.DataFrame:
+#     """
+#     Cria um dataframe 'desperiodizado', voltando ao formato tradicional.
+
+#     Parameters
+#     ----------
+#     df_period : DataFrame
+#         Dataframe com os dados 'periodizados'.
+
+#     Returns
+#     -------
+#     DataFrame
+#         Dataframe com os dados 'desperiodizados'.
+
+#     """
+#     index_anos = pd.PeriodIndex(df_period.index, freq= 'Y').year
+#     index_mes = pd.PeriodIndex(df_period.index, freq='M').month
+#     df_arq = df_period.set_index([index_anos,
+#                                   index_mes])
+#     df_arq.index.names = ['ano', 'mes']
+#     df_arq = df_arq.stack().unstack('mes').swaplevel()
+
+#     # Substitui os NaN por 0 e deixa como inteiro
+#     df_arq.fillna(0, inplace=True)
+#     df_arq = df_arq.astype(int)
+
+#     df_arq.sort_index(inplace=True)
+
+#     return df_arq
 
 
 class VazoesTxt:
@@ -158,7 +190,7 @@ class VazoesTxt:
         return self
 
     def add_novo_periodo(self,
-                         df_new_months: pd.DataFrame,
+                         list_months_previsao_ext: list,
                          inplace: bool = False,
                          ) -> None:
         """
@@ -181,55 +213,78 @@ class VazoesTxt:
         """
         # Verifica o próximo mês a ser preenchido
         next_month = self.df_period.index[-1] + pd.offsets.MonthEnd()
+        print(next_month)
+        
         # Calcula a diferença entre o próximo mês e o primeiro do período informado
-        diff_months = next_month - df_new_months.index[0]
-        # Ajusta o index
-        df_new_months_ajust = df_new_months.copy()
-        df_new_months_ajust.index = df_new_months.index + diff_months
-
-        # Concatena com os dados originais
-        df_new = pd.concat([self.df_period, df_new_months_ajust],
-                            verify_integrity=True)
-
+        # Primeiro df na lista de dataframes com os novos meses
+        # diff_months = next_month - list_months_previsao_ext[0][0].index[0]
+        # ajust_index = list_months_previsao_ext[0][0].index[0] + diff_months
+        # print(diff_months)
+        
+        self.previsao_extendida = list()
+        #Recebe uma lista com dataframes para preencher correspondete a cada ano
+        #Modificação para o predict retornar uma lista
+        for lista_dfs in list_months_previsao_ext:
+            for df_new_months in lista_dfs:
+            
+                # Ajusta o index
+                df_new_months_ajust = df_new_months.copy()
+                # df_new_months_ajust.index = ajust_index
+        
+                # Concatena com os dados originais
+                df_new = pd.concat([self.df_period, df_new_months_ajust],
+                                    ignore_index=True,
+                                    verify_integrity=True)
+    
+                
+                # # Muda o objeto no local
+                # self.df_period = df_new
+                # Desnormaliza
+                self.df_arquivo = _desperiodizar_df_arq(df_new)
+                self.previsao_extendida.append(self.df_arquivo)
+            
         # Se não muda localmente, retorna um novo objeto
         if inplace is False:
-            return self.from_df_period(df_new)
-
-        # Muda o objeto no local
-        self.df_period = df_new
-        # Desnormaliza
-        self.df_arquivo = _desperiodizar_df_arq(self.df_period)
-
+            return self.previsao_extendida
+    
         return None
 
 
     def salvar_txt(self,
-                   arquivo_destino: Union[str, Path],
+                   list_dfs_previsao_extendida: list,
+                   # arquivo_destino: Union[str, Path],
                    ) -> None:
         """
         Salva o dataframe modificado em um novo arquivo de vazões.txt.
 
         Parameters
         ----------
+        list_dfs_previsao_extendida: list
+            lista que contém lista de dataframes com os arquivos preenchidos 
+            periodizados.
         arquivo_destino : str or Path
             Nome ou caminho do arquivo de destino.
 
         """
         
+        self.check = list()
+        for lista_dfs in list_dfs_previsao_extendida:
+            for previsao_ext in lista_dfs:
+                prev = _desperiodizar_df_arq(previsao_ext)
+                self.check.append(prev)
+                
+    
+        return self.check
+        # lista_linhas = list()
+        # for idx, row in self.df_arquivo.iterrows():
+        #     lista_linhas.append(f"{idx[0]:3} {idx[1]:4}"
+        #                         f"{row[1]:6}{row[2]:6}{row[3]:6}"
+        #                         f"{row[4]:6}{row[5]:6}{row[6]:6}"
+        #                         f"{row[7]:6}{row[8]:6}{row[9]:6}"
+        #                         f"{row[10]:6}{row[11]:6}{row[12]:6}")
 
-        
-        lista_linhas = list()
-        for idx, row in self.df_arquivo.iterrows():
-            lista_linhas.append(f"{idx[0]:3} {idx[1]:4}"
-                                f"{row[1]:6}{row[2]:6}{row[3]:6}"
-                                f"{row[4]:6}{row[5]:6}{row[6]:6}"
-                                f"{row[7]:6}{row[8]:6}{row[9]:6}"
-                                f"{row[10]:6}{row[11]:6}{row[12]:6}")
+        # conteudo_arquivo = '\n'.join(lista_linhas)
 
-        conteudo_arquivo = '\n'.join(lista_linhas)
-
-        with open(arquivo_destino, 'w') as file:
-            file.write(conteudo_arquivo)
-            file.write('\n')
-
-        return print('Arquivo escrito!')
+        # with open(arquivo_destino, 'w') as file:
+        #     file.write(conteudo_arquivo)
+        #     file.write('\n')
