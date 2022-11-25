@@ -24,7 +24,6 @@ if (folder := str(folderpath)) not in sys.path:
 lista_arquivos = list()
 lista_modelos = list()
 anos_usados = list()
-resultados = dict()
 #por enquanto uma lista
 resultados = list()
 
@@ -47,7 +46,7 @@ def walk(caminho):
 all_files = list(walk(caminho))
 lista_vazoes = list()
 anos_usados = list()
-
+check_previsao_ext = list()
 
 for arq in all_files:    
     # Criação do objeto de vazões
@@ -72,7 +71,8 @@ for vaz in lista_vazoes:
     
     """modifiacr aqui"""
     # Predição para um novo período
-    resultados.append(model.predict())
-    
-        
+    model.predict()
+    resultados.append(model.previsao_extendida())
+    vazoes_new = vazoes.salvar_txt(resultados)
+    check_previsao_ext.append(vazoes_new)    
         #anos_usados.extend(model.anos_)
