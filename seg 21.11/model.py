@@ -44,7 +44,7 @@ class ModeloCamila:
         #self.correlacao_outros_ = list()
         self.mes_final_periodo_ = None
         self.anos_ = list()
-
+        self.df_previsao_extendida = list()
 
     def fit(self, df_base: pd.DataFrame,
             anos_proibidos:list) -> 'ModeloCamila':
@@ -227,13 +227,14 @@ class ModeloCamila:
                                                     periods=len(df_trecho_ajust),
                                                     freq='M')
             
+            
             self.list_trecho_escolhido.append(df_trecho_ajust)
             
         return self.list_trecho_escolhido
 
     
-    def salvar_txt(self):
-        
+    def previsao_extendida(self):
+        """Utilizar esse método somente para exrever os arquivos em """
         #Retorna uma lista com nome das usinas
         nome_postos = self.postos_principais.values()
         #Convertendo os anos em strings para concontenar no nome
@@ -243,5 +244,21 @@ class ModeloCamila:
         
         
         
+        res = dict()
+        for posto in nome_postos:
+            for anos in anos_string:
+                teste = {posto: anos}
+                res.update(teste)
         
-        pass
+        print(res)
+        
+        """acrescentar exception, caso não tenha realizado o predict."""
+       
+        
+        for dfs_next_months in self.list_trecho_escolhido:
+    
+            df_final = pd.concat([self.df_base, dfs_next_months])
+            self.df_previsao_extendida.append(df_final)
+            
+    
+        return self.df_previsao_extendida
